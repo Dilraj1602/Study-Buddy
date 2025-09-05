@@ -1,108 +1,122 @@
-# StudyTrack
+# 📚 StudyTrack (Study-Buddy)
 
-A full-stack web application to help you track your study sessions, coding practice, and progress over time.
-
-## Features
-- User authentication (register, login, logout)
-- Add, edit, and delete daily study logs
-- Track tasks with descriptions and durations
-- Global Context API for tasks and statistics
-- Real-time statistics: total tasks, total study time, last activity
-- AI-powered insights and study analytics (Gemini-style, local)
-- Responsive and modern UI
-
-## Tech Stack
-- **Frontend:** React, Axios, React Router
-- **Backend:** Node.js, Express, Mongoose, MongoDB
-- **Authentication:** JWT, Cookies
-
-## Getting Started
-
-### Prerequisites
-- Node.js (v16+ recommended)
-- npm or yarn
-- MongoDB (local or Atlas)
-
-### Installation
-
-1. **Clone the repository:**
-   ```sh
-   git clone https://github.com/Dilraj1602/Study-Buddy
-   cd Study-Buddy
-   ```
-
-2. **Install server dependencies:**
-   ```sh
-   yarn install
-   ```
-
-3. **Install client dependencies:**
-   ```sh
-   cd ../client
-   npm install
-   # or
-   yarn install
-   ```
-
-4. **Set up environment variables:**
-   - In `server/`, create a `.env` file:
-     ```env
-     MONGO_URI=
-     JWT_SECRET=
-     PORT=4000
-     ```
-   - Adjust `MONGO_URI` if using MongoDB Atlas.
-
-5. **Start the backend server:**
-   ```sh
-   cd server
-   npm start
-   # or
-   yarn start
-   ```
-
-6. **Start the frontend app:**
-   ```sh
-   cd ../client
-   npm start
-   # or
-   yarn start
-   ```
-   The app will run at [http://localhost:3000](http://localhost:3000)
-
-## Usage
-- Register a new account or log in.
-- Add your daily study tasks, coding practice, and durations.
-- View, edit, or delete logs from the dashboard.
-- Filter and search logs by date or keywords.
-- See your average study duration (weekly, monthly, 6-monthly, yearly, all-time) in the dashboard.
-- View total study time, total tasks, and last activity in the Study Statistics tab.
-- Get AI-powered insights and recommendations based on your study data (no external API required).
-
-## Folder Structure
-```
-StudyTrack/
-  client/      # React frontend
-  server/      # Node.js/Express backend
-```
-
-## Contributing
-Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
-
-1. Fork the repo
-2. Create your feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes (`git commit -am 'Add new feature'`)
-4. Push to the branch (`git push origin feature/your-feature`)
-5. Open a pull request
-
-## License
-[MIT](LICENSE)
+A modern full-stack web application designed to help you **track study sessions, stay consistent, and analyze progress** — while also providing a **chatbot companion** for interactive study support.  
 
 ---
 
-**Made with ❤️ for productivity and progress!**
+## ✨ Features
 
-## Future Goals
-- **User Streak Graph:** Visualize your study streaks with interactive graphs to motivate daily consistency.
-- **Daily Study Limit:** Set and track a daily study duration limit, with notifications when you reach or exceed your goal.
+- 🔑 **User Authentication**: Secure login, registration, and logout with JWT and cookies.  
+- ✅ **Task Management**: Add, edit, and delete daily study logs with duration tracking.  
+- 🌍 **Global Context API**: Centralized state management for tasks and analytics.  
+- 📊 **Study Analytics**:  
+  - Total tasks completed  
+  - Total study time  
+  - Last activity timestamp  
+  - Average duration across **weekly, monthly, 6-monthly, yearly, and all-time** ranges  
+- 🤖 **Chatbot Integration**: Get AI-powered assistance to stay motivated, resolve doubts, or receive study tips.  
+- 📱 **Responsive UI**: Clean and user-friendly interface using React + Tailwind.  
+- ⚡ **AI Insights Module**: Local analytics inspired by AI to give personalized insights without external API dependency.  
 
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend**: React, Axios, React Router, Tailwind CSS  
+- **Backend**: Node.js, Express, MongoDB, Mongoose  
+- **Authentication**: JWT & Cookies  
+- **State Management**: React Context API, Custom Hooks  
+- **Chatbot**: Integrated with frontend for interactive study help  
+
+---
+
+## 📦 Installation & Setup
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/Dilraj1602/Study-Buddy.git
+cd Study-Buddy
+```
+
+### 2. Install dependencies
+#### Backend
+```bash
+cd server
+npm install
+```
+
+#### Frontend
+```bash
+cd ../client
+npm install
+```
+
+### 3. Configure environment variables
+Create a `.env` file in the `server/` directory with:
+```
+MONGO_URI=<your-mongodb-connection-string>
+JWT_SECRET=<your-jwt-secret>
+PORT=4000
+```
+
+### 4. Run the backend
+```bash
+cd server
+npm start
+```
+
+### 5. Run the frontend
+```bash
+cd ../client
+npm start
+```
+
+Your app will be live at: **http://localhost:3000**
+
+---
+
+## 🚀 Usage Guide
+
+- 🔐 **Login/Register**: Create an account or sign in.  
+- 📝 **Manage Tasks**: Add, edit, or delete study tasks with time duration.  
+- 📈 **View Analytics**: Track weekly/monthly/yearly averages, total hours, and streaks.  
+- 🤖 **Use the Chatbot**: Ask study-related queries, get motivational messages, or track your goals interactively.  
+- 📊 **Check Dashboard**: Access complete statistics and performance insights.  
+
+---
+
+## 📂 Folder Structure
+
+```
+Study-Buddy/
+├── client/      # React frontend with chatbot & dashboard
+└── server/      # Node.js/Express backend APIs with MongoDB
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!  
+1. Fork this repository  
+2. Create your feature branch (`git checkout -b feature/YourFeature`)  
+3. Commit your changes (`git commit -m "Add new feature"`)  
+4. Push to your branch (`git push origin feature/YourFeature`)  
+5. Open a Pull Request 🚀  
+
+---
+
+## 📜 License
+
+This project is licensed under the [MIT License](LICENSE).  
+
+---
+
+## 🎯 Future Goals
+
+- 📈 **User Streak Graph**: Visualize study streaks with interactive charts to motivate consistency.  
+- ⏳ **Daily Study Limit**: Set a daily limit for study hours with alerts when exceeded.  
+
+---
+
+💡 *Made with passion to keep learning engaging, consistent, and fun!*  

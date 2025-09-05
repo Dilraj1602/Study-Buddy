@@ -27,8 +27,8 @@ A full-stack web application to help you track your study sessions, coding pract
 
 1. **Clone the repository:**
    ```sh
-   git clone https://github.com/Dilraj1602/StudyTrack
-   cd StudyTrack
+   git clone https://github.com/Dilraj1602/Study-Buddy
+   cd Study-Buddy
    ```
 
 2. **Install server dependencies:**

@@ -6,6 +6,9 @@ A full-stack web application to help you track your study sessions, coding pract
 - User authentication (register, login, logout)
 - Add, edit, and delete daily study logs
 - Track tasks with descriptions and durations
+- Global Context API for tasks and statistics
+- Real-time statistics: total tasks, total study time, last activity
+- AI-powered insights and study analytics (Gemini-style, local)
 - Responsive and modern UI
 
 ## Tech Stack
@@ -72,6 +75,9 @@ A full-stack web application to help you track your study sessions, coding pract
 - Add your daily study tasks, coding practice, and durations.
 - View, edit, or delete logs from the dashboard.
 - Filter and search logs by date or keywords.
+- See your average study duration (weekly, monthly, 6-monthly, yearly, all-time) in the dashboard.
+- View total study time, total tasks, and last activity in the Study Statistics tab.
+- Get AI-powered insights and recommendations based on your study data (no external API required).
 
 ## Folder Structure
 ```
@@ -97,8 +103,6 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 **Made with ❤️ for productivity and progress!**
 
 ## Future Goals
-- **Chatbot Integration:** Add an interactive chatbot to answer user questions, provide study tips, and guide users through the app.
-- **AI-Powered Insights:** Integrate AI to automatically summarize your study stats and performance, offering personalized tips to improve learning efficiency.
-- **Wellness Warnings:** Use AI to detect overwork patterns and warn users if they are studying too much, encouraging healthy study habits.
-- **Smart Recommendations:** Suggest optimal study schedules, break times, and resources based on user data and progress.
+- **User Streak Graph:** Visualize your study streaks with interactive graphs to motivate daily consistency.
+- **Daily Study Limit:** Set and track a daily study duration limit, with notifications when you reach or exceed your goal.
 

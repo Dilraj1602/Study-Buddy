@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Task = require('../models/Task');
+const redisClient = require('../config/redis');
 
 exports.getProfile = async (req, res) => {
   try {
@@ -28,6 +29,10 @@ exports.updateProfile = async (req, res) => {
 
 exports.getLeaderboard = async (req, res) => {
   try {
+
+    const cached = await redisClient.get('leaderboard');
+    if (cached) return res.json(JSON.parse(cached));
+
     const users = await User.find({}, 'firstName lastName tasks');
     const leaderboard = [];
     for (const user of users) {
@@ -45,6 +50,7 @@ exports.getLeaderboard = async (req, res) => {
       });
     }
     leaderboard.sort((a, b) => b.totalDuration - a.totalDuration);
+    await redisClient.set('leaderboard', JSON.stringify(leaderboard), { EX: 300 }); // Cache for 5 min
     res.json(leaderboard);
   } catch (err) {
     console.error('Leaderboard error:', err);

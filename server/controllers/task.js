@@ -1,6 +1,7 @@
 const Task = require('../models/Task');
 const User = require('../models/User');
 const { body, validationResult } = require('express-validator');
+const redisClient = require('../config/redis');
 
 exports.taskValidation = [
   body('date').notEmpty().withMessage('Date is required'),
@@ -17,7 +18,12 @@ exports.taskValidation = [
 
 exports.getTasks = async (req, res) => {
   try {
+    const userId = req.user;
+    const cacheKey = `tasks:${userId}`;
+    const cached = await redisClient.get(cacheKey);
+    if (cached) return res.json(JSON.parse(cached));
     const tasks = await Task.find({ user: req.user }).sort({ date: -1 });
+    await redisClient.set(cacheKey, JSON.stringify(tasks), { EX: 300 });
     res.json(tasks);
   } catch (error) {
     console.error('Error getting tasks:', error);
@@ -32,7 +38,7 @@ exports.getTasks = async (req, res) => {
 exports.getMonthlyStats = async (req, res) => {
   try {
     const { year } = req.params;
-    
+
     if (!year || !/^\d{4}$/.test(year)) {
       return res.status(400).json({ message: 'Valid year required (YYYY format)' });
     }
@@ -41,12 +47,12 @@ exports.getMonthlyStats = async (req, res) => {
       {
         $match: {
           user: req.user,
-          date: { $regex: `^${year}-` } 
+          date: { $regex: `^${year}-` }
         }
       },
       {
         $addFields: {
-          month: { $substr: ['$date', 5, 2] } 
+          month: { $substr: ['$date', 5, 2] }
         }
       },
       {
@@ -68,14 +74,14 @@ exports.getMonthlyStats = async (req, res) => {
     for (let month = 1; month <= 12; month++) {
       const monthStr = month.toString().padStart(2, '0');
       const monthData = monthlyStats.find(stat => stat._id === monthStr);
-      
+
       if (monthData) {
         // Calculate average duration in hours
         const totalSeconds = monthData.durations.reduce((acc, duration) => {
           const [h, m, s] = duration.split(':').map(Number);
           return acc + h * 3600 + m * 60 + s;
         }, 0);
-        
+
         const avgHours = totalSeconds / monthData.dayCount / 3600;
         monthlyData.push({
           month: month,

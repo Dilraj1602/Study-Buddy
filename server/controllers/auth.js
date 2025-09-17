@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const redisClient = require('../config/redis');
 const { sendPasswordResetEmail, sendSignupVerificationEmail } = require('../config/email');
 
 exports.sendSignupOtp = async (req, res) => {

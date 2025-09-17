@@ -19,11 +19,12 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Task = require('../models/Task');
 const User = require('../models/User');
+const redisClient = require('../config/redis');
 
 // Helper function to parse duration from various types
 const parseDuration = (duration) => {
   console.log('parseDuration called with:', duration, 'type:', typeof duration);
-  
+
   if (typeof duration === 'number' && !isNaN(duration)) {
     console.log('Duration is number:', duration);
     return duration;
@@ -37,14 +38,14 @@ const parseDuration = (duration) => {
         const hours = parseInt(parts[0], 10) || 0;
         const minutes = parseInt(parts[1], 10) || 0;
         const seconds = parseInt(parts[2], 10) || 0;
-        
+
         // Convert to total hours (decimal)
         const totalHours = hours + (minutes / 60) + (seconds / 3600);
         console.log('Parsed duration:', { hours, minutes, seconds, totalHours });
         return !isNaN(totalHours) && totalHours > 0 ? totalHours : 0;
       }
     }
-    
+
     // Fallback to simple number parsing
     const parsed = parseFloat(duration);
     console.log('Fallback parsed duration:', parsed);
@@ -58,10 +59,10 @@ const parseDuration = (duration) => {
 const calculateAverageHours = (intervalData) => {
   const entries = Object.values(intervalData);
   if (entries.length === 0) return 0;
-  
+
   const totalHours = entries.reduce((sum, entry) => sum + entry.hours, 0);
   const average = totalHours / entries.length;
-  
+
   return Math.round(average * 10) / 10; // Round to 1 decimal place
 };
 
@@ -84,9 +85,9 @@ function cleanStudyStatsData(data) {
         cleanTimeIntervals[key] = {};
         Object.keys(interval).forEach(subKey => {
           const subData = interval[subKey];
-          if (subData && typeof subData === 'object' && 
-              typeof subData.hours === 'number' && !isNaN(subData.hours) &&
-              typeof subData.tasks === 'number' && !isNaN(subData.tasks)) {
+          if (subData && typeof subData === 'object' &&
+            typeof subData.hours === 'number' && !isNaN(subData.hours) &&
+            typeof subData.tasks === 'number' && !isNaN(subData.tasks)) {
             cleanTimeIntervals[key][subKey] = {
               hours: subData.hours,
               tasks: subData.tasks
@@ -104,7 +105,7 @@ function cleanStudyStatsData(data) {
 
     // Clean study patterns
     const cleanStudyPatterns = {
-      peakHours: Array.isArray(data.studyPatterns?.peakHours) ? data.studyPatterns.peakHours.filter(hour => 
+      peakHours: Array.isArray(data.studyPatterns?.peakHours) ? data.studyPatterns.peakHours.filter(hour =>
         typeof hour.hour === 'number' && !isNaN(hour.hour) &&
         typeof hour.hours === 'number' && !isNaN(hour.hours) &&
         typeof hour.tasks === 'number' && !isNaN(hour.tasks)
@@ -231,7 +232,7 @@ async function generateAIInsights(userData, studyStatsData, tasks) {
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
-    
+
     // Extract JSON from the response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -249,7 +250,7 @@ async function generateAIInsights(userData, studyStatsData, tasks) {
 // Function to get default insights when AI fails
 function getDefaultInsights(userData, studyStatsData, tasks) {
   const { totals, productivityScore, studyPatterns } = studyStatsData;
-  
+
   return {
     performanceOverview: {
       totalStudyHours: `${totals.hours} hours`,
@@ -295,7 +296,9 @@ function getDefaultInsights(userData, studyStatsData, tasks) {
 exports.getTrackingInsights = async (req, res) => {
   try {
     const userId = req.user; // From auth middleware
-
+    const cacheKey = `tracking:insights:${userId}`;
+    const cached = await redisClient.get(cacheKey);
+    if (cached) return res.json(JSON.parse(cached));
     // Get user data with only essential fields
     const user = await User.findById(userId).select('firstName lastName email createdAt');
     if (!user) {
@@ -306,14 +309,14 @@ exports.getTrackingInsights = async (req, res) => {
     const tasks = await Task.find({ user: userId })
       .select('title description subject priority duration completed createdAt updatedAt date')
       .sort({ createdAt: -1 });
-    
+
     if (tasks.length === 0) {
       return res.json({
         message: 'No study data available yet. Start adding tasks to get AI insights!',
-        insights: getDefaultInsights(user, { 
-          totals: { hours: 0, tasks: 0 }, 
-          productivityScore: 0, 
-          studyPatterns: {} 
+        insights: getDefaultInsights(user, {
+          totals: { hours: 0, tasks: 0 },
+          productivityScore: 0,
+          studyPatterns: {}
         }, []),
         hasData: false
       });
@@ -321,8 +324,8 @@ exports.getTrackingInsights = async (req, res) => {
 
     // Create study statistics data directly from tasks
     const studyStatsData = createStudyStatsData(tasks);
-    
-        console.log('=== SERVER SIDE DEBUG ===');
+
+    console.log('=== SERVER SIDE DEBUG ===');
     console.log('User Data:', user);
     console.log('Study Stats Data:', studyStatsData);
     console.log('Tasks Count:', tasks.length);
@@ -341,6 +344,9 @@ exports.getTrackingInsights = async (req, res) => {
       insights = getDefaultInsights(user, studyStatsData, tasks);
     }
 
+
+     await redisClient.set(cacheKey, JSON.stringify(responseData), { EX: 300 });
+
     res.json({
       message: 'AI insights generated successfully',
       insights,
@@ -354,12 +360,12 @@ exports.getTrackingInsights = async (req, res) => {
 
   } catch (error) {
     console.error('Tracking insights error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Failed to generate insights',
-      insights: getDefaultInsights({ firstName: 'User', lastName: '', email: '', createdAt: new Date() }, { 
-        totals: { hours: 0, tasks: 0 }, 
-        productivityScore: 0, 
-        studyPatterns: {} 
+      insights: getDefaultInsights({ firstName: 'User', lastName: '', email: '', createdAt: new Date() }, {
+        totals: { hours: 0, tasks: 0 },
+        productivityScore: 0,
+        studyPatterns: {}
       }, []),
       hasData: false
     });
@@ -405,7 +411,7 @@ function createStudyStatsData(tasks) {
 
     // Use createdAt if available, otherwise fall back to date field
     const taskDate = task.createdAt ? new Date(task.createdAt) : new Date(task.date);
-    
+
     // Validate date
     if (isNaN(taskDate.getTime())) {
       return; // Skip tasks with invalid dates
@@ -471,7 +477,7 @@ function createStudyStatsData(tasks) {
 
   // Calculate productivity score
   const productivityScore = calculateProductivityScore(intervals);
-  
+
   // Analyze study patterns
   const studyPatterns = analyzeStudyPatterns(intervals);
 
@@ -514,17 +520,17 @@ function getWeekNumber(date) {
     if (!date || isNaN(date.getTime())) {
       return 'Invalid-Week';
     }
-    
+
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
     const weekNum = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    
+
     if (isNaN(weekNum)) {
       return 'Invalid-Week';
     }
-    
+
     return `${d.getUTCFullYear()}-W${weekNum}`;
   } catch (error) {
     console.error('Error calculating week number:', error);
@@ -540,7 +546,7 @@ function calculateProductivityScore(intervals) {
 
     const consistency = dailyValues.filter(day => day.tasks > 0).length / dailyValues.length;
     const avgTasksPerDay = dailyValues.reduce((sum, day) => sum + day.tasks, 0) / dailyValues.length;
-    
+
     const score = Math.round((consistency * 0.6 + avgTasksPerDay * 0.4) * 100);
     return isNaN(score) ? 0 : Math.max(0, Math.min(100, score));
   } catch (error) {
@@ -555,7 +561,7 @@ function analyzeStudyPatterns(intervals) {
     const hourlyData = intervals.hourly;
     const peakHours = Object.entries(hourlyData)
       .filter(([hour, data]) => !isNaN(parseInt(hour)) && data && typeof data.hours === 'number' && !isNaN(data.hours))
-      .sort(([,a], [,b]) => b.hours - a.hours)
+      .sort(([, a], [, b]) => b.hours - a.hours)
       .slice(0, 3)
       .map(([hour, data]) => ({
         hour: parseInt(hour),
@@ -564,14 +570,14 @@ function analyzeStudyPatterns(intervals) {
       }));
 
     const dailyData = Object.values(intervals.daily).filter(day => day && typeof day.hours === 'number' && !isNaN(day.hours));
-    
+
     let avgDailyHours = 0;
     let avgDailyTasks = 0;
-    
+
     if (dailyData.length > 0) {
       const totalHours = dailyData.reduce((sum, day) => sum + day.hours, 0);
       const totalTasks = dailyData.reduce((sum, day) => sum + day.tasks, 0);
-      
+
       avgDailyHours = totalHours / dailyData.length;
       avgDailyTasks = totalTasks / dailyData.length;
     }
@@ -597,9 +603,9 @@ function analyzeStudyPatterns(intervals) {
 exports.getStudyStats = async (req, res) => {
   try {
     const userId = req.user;
-    
+
     const tasks = await Task.find({ user: userId });
-    
+
     const stats = {
       totalTasks: tasks.length,
       totalStudyHours: tasks.reduce((sum, task) => sum + parseDuration(task.duration), 0),
@@ -618,11 +624,11 @@ exports.getStudyStats = async (req, res) => {
 // Helper function to calculate study streak
 function calculateStudyStreak(tasks) {
   if (tasks.length === 0) return 0;
-  
+
   const today = new Date();
   let streak = 0;
   let currentDate = new Date(today);
-  
+
   while (true) {
     const dateStr = currentDate.toISOString().split('T')[0];
     const hasTaskOnDate = tasks.some(task => {
@@ -634,7 +640,7 @@ function calculateStudyStreak(tasks) {
       const taskDateStr = taskDate.toISOString().split('T')[0];
       return taskDateStr === dateStr;
     });
-    
+
     if (hasTaskOnDate) {
       streak++;
       currentDate.setDate(currentDate.getDate() - 1);
@@ -642,7 +648,7 @@ function calculateStudyStreak(tasks) {
       break;
     }
   }
-  
+
   return streak;
 }
 
@@ -650,7 +656,7 @@ function calculateStudyStreak(tasks) {
 function getMonthlyProgress(tasks) {
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
-  
+
   const monthlyTasks = tasks.filter(task => {
     // Check if task has a valid date (createdAt or date field)
     const taskDate = task.createdAt ? new Date(task.createdAt) : new Date(task.date);
@@ -659,7 +665,7 @@ function getMonthlyProgress(tasks) {
     }
     return taskDate.getMonth() === currentMonth && taskDate.getFullYear() === currentYear;
   });
-  
+
   return {
     month: new Date().toLocaleString('default', { month: 'long' }),
     totalTasks: monthlyTasks.length,

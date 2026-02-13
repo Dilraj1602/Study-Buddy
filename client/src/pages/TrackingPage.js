@@ -1,257 +1,324 @@
 import React, { useState } from 'react';
-import { useTasks } from '../context/TaskContext';
+import { useApp } from '../context/AppContext';
 import StreakGraph from '../components/StreakGraph.jsx';
 import './css/tracking.css';
 
 const TrackingPage = () => {
-  const { averages, totalDuration, totalTasks, lastTaskDate } = useTasks();
+  const { 
+    loading, 
+    error, 
+    aiInsights,
+    averages,
+    totalDuration,
+    totalTasks,
+    uniqueDays,
+    lastTaskDate,
+    currentStreak,
+    fetchTasks,
+  } = useApp();
   
-  // ✅ Simulated AI insights based on averages
-  const aiInsights = {
-    performanceOverview: {
-      totalStudyHours: averages.all || '0',
-      weeklyReport: `Your average daily study duration this week is ${averages.weekly || 0}.`,
-      monthlyReport: `This month's average daily study duration is ${averages.monthly || 0}.`,
-      sixMonthlyReport: `6-month average daily study duration: ${averages.sixMonthly || 0}.`,
-      yearlyReport: `Yearly average daily study duration: ${averages.yearly || 0}.`,
-      summary: `Your overall average study session duration is ${averages.all || 0}. Keep going strong!`
-    },
-    strengthsWeaknesses: {
-      strengths: [
-        'Consistent study sessions',
-        'Good time management',
-      ],
-      weaknesses: [
-        'Could increase session length for deeper focus',
-        'Try to reduce distractions during study time',
-      ],
-      analysis: 'You are maintaining a steady study routine. Focus on increasing the quality and length of your sessions for even better results.'
-    },
-    productivityInsights: {
-      dataDrivenInsights: `Your best average duration is ${averages.monthly || 0} this month.`,
-      studyPatterns: 'You tend to study more on weekdays. Consider balancing your schedule for weekends.',
-      recommendations: 'Set a daily study goal and track your progress to improve consistency.'
-    },
-    learningEfficiency: {
-      retention: 'Medium',
-      efficiencyScore: 'B+',
-      improvementAreas: 'Review your notes after each session to boost retention.'
-    },
-    aiFeedback: {
-      recommendations: [
-        'Keep a study journal to reflect on your progress.',
-        'Experiment with different study techniques to find what works best.'
-      ],
-      strategies: 'Try the Pomodoro technique and take regular breaks to maximize focus.'
-    },
-    competitiveBenchmarking: {
-      currentRank: 'Top 25%',
-      improvementAreas: [
-        'Increase average session duration',
-        'Participate in group study sessions'
-      ],
-      top1PercentPath: 'Maintain your current pace and gradually increase your daily study time.'
-    },
-    dataSummary: {
-      totalTasks: totalTasks || 0,
-      totalStudyTime: averages.all || 0,
-      lastActivity: lastTaskDate ? new Date(lastTaskDate).toLocaleDateString() : 'N/A',
-    },
-    hasData: true,
-    message: 'AI insights generated from your study averages.'
-  };
-
   const [activeTab, setActiveTab] = useState('insights');
 
-  const getConsistencyColor = (level) => {
-    switch (level) {
-      case 'Easy': return '#10b981';
-      case 'Medium': return '#f59e0b';
-      case 'Hard': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
+  if (loading) {
+    return (
+      <div className="tracking-page">
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p>Loading your study insights...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="tracking-page">
+        <div className="error-state">
+          <h2>Unable to load data</h2>
+          <p>Please try again later</p>
+          <button onClick={fetchTasks} className="retry-btn">Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="tracking-page">
+      {/* Header */}
       <div className="tracking-header">
-        <h1>AI Study Insights</h1>
-        <p>Personalized analysis of your study patterns and recommendations</p>
+        <h1>Study Insights</h1>
+        <p>Data-driven analysis of your learning patterns</p>
       </div>
 
-      {/*  Tab Navigation */}
+      {/* Tab Navigation */}
       <div className="tab-navigation">
         <button
-          className={`tab-button ${activeTab === 'insights' ? 'active' : ''}`}
+          className={`tab-btn ${activeTab === 'insights' ? 'active' : ''}`}
           onClick={() => setActiveTab('insights')}
         >
-          AI Insights
+          Insights
         </button>
         <button
-          className={`tab-button ${activeTab === 'stats' ? 'active' : ''}`}
+          className={`tab-btn ${activeTab === 'stats' ? 'active' : ''}`}
           onClick={() => setActiveTab('stats')}
         >
-          Study Statistics
+          Statistics
         </button>
         <button
-          className={`tab-button ${activeTab === 'streakgraph' ? 'active' : ''}`}
-          onClick={() => setActiveTab('streakgraph')}
+          className={`tab-btn ${activeTab === 'streak' ? 'active' : ''}`}
+          onClick={() => setActiveTab('streak')}
         >
-          Streak Graph
+          Streak
         </button>
       </div>
 
-      {/* AI INSIGHTS TAB */}
+      {/* INSIGHTS TAB */}
       {activeTab === 'insights' && (
-        <div className="insights-container">
-          <div className="insight-card">
-            <h3>📊 Performance Overview</h3>
-            <div className="performance-grid">
-              <div className="performance-item">
-                <strong>Total Study Hours:</strong> {aiInsights.performanceOverview.totalStudyHours}
+        <div className="insights-content">
+          {/* Key Metrics Row */}
+          <div className="metrics-grid">
+            <div className="metric-card">
+              <div className="metric-icon">📊</div>
+              <div className="metric-content">
+                <p className="metric-label">Current Streak</p>
+                <p className="metric-value">{currentStreak} days</p>
               </div>
-              <div className="performance-item">
-                <strong>Weekly Report:</strong> {aiInsights.performanceOverview.weeklyReport}
+            </div>
+            
+            <div className="metric-card">
+              <div className="metric-icon">⏱️</div>
+              <div className="metric-content">
+                <p className="metric-label">Total Study Time</p>
+                <p className="metric-value">{totalDuration}</p>
               </div>
-              <div className="performance-item">
-                <strong>Monthly Report:</strong> {aiInsights.performanceOverview.monthlyReport}
+            </div>
+            
+            <div className="metric-card">
+              <div className="metric-icon">📅</div>
+              <div className="metric-content">
+                <p className="metric-label">Active Days</p>
+                <p className="metric-value">{uniqueDays}</p>
               </div>
-              <div className="performance-item">
-                <strong>6-Month Report:</strong> {aiInsights.performanceOverview.sixMonthlyReport}
-              </div>
-              <div className="performance-item">
-                <strong>Yearly Report:</strong> {aiInsights.performanceOverview.yearlyReport}
-              </div>
-              <div className="performance-item">
-                <strong>Summary:</strong> {aiInsights.performanceOverview.summary}
+            </div>
+            
+            <div className="metric-card">
+              <div className="metric-icon">✅</div>
+              <div className="metric-content">
+                <p className="metric-label">Total Sessions</p>
+                <p className="metric-value">{totalTasks}</p>
               </div>
             </div>
           </div>
 
-          <div className="insight-card">
-            <h3>🎯 Strengths & Weaknesses</h3>
-            <div className="strengths-weaknesses">
-              <div className="strengths">
-                <h4>Strengths:</h4>
-                <ul>
-                  {aiInsights.strengthsWeaknesses.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                </ul>
+          {/* Performance Overview */}
+          <div className="section-card">
+            <h2 className="section-title">Performance Overview</h2>
+            <div className="data-grid">
+              <div className="data-item">
+                <span className="data-label">Weekly Average</span>
+                <span className="data-value">{aiInsights.performance.weeklyAverage}</span>
               </div>
-              <div className="weaknesses">
-                <h4>Areas for Improvement:</h4>
-                <ul>
-                  {aiInsights.strengthsWeaknesses.weaknesses.map((w, i) => <li key={i}>{w}</li>)}
-                </ul>
+              <div className="data-item">
+                <span className="data-label">Monthly Average</span>
+                <span className="data-value">{aiInsights.performance.monthlyAverage}</span>
               </div>
-            </div>
-            <p><strong>Analysis:</strong> {aiInsights.strengthsWeaknesses.analysis}</p>
-          </div>
-
-          <div className="insight-card">
-            <h3>⚡ Productivity Insights</h3>
-            <div className="productivity-content">
-              <div className="insight-item">
-                <strong>Data-Driven Insights:</strong> {aiInsights.productivityInsights.dataDrivenInsights}
+              <div className="data-item">
+                <span className="data-label">6-Month Average</span>
+                <span className="data-value">{aiInsights.performance.sixMonthAverage}</span>
               </div>
-              <div className="insight-item">
-                <strong>Study Patterns:</strong> {aiInsights.productivityInsights.studyPatterns}
+              <div className="data-item">
+                <span className="data-label">Yearly Average</span>
+                <span className="data-value">{aiInsights.performance.yearlyAverage}</span>
               </div>
-              <div className="insight-item">
-                <strong>Recommendations:</strong> {aiInsights.productivityInsights.recommendations}
+              <div className="data-item highlight">
+                <span className="data-label">Best Period</span>
+                <span className="data-value">{aiInsights.performance.bestPeriod}</span>
+              </div>
+              <div className="data-item highlight">
+                <span className="data-label">Best Average</span>
+                <span className="data-value">{aiInsights.performance.bestAverage}</span>
               </div>
             </div>
           </div>
 
-          <div className="insight-card">
-            <h3>🧠 Learning Efficiency</h3>
-            <div className="efficiency-content">
-              <div className="efficiency-item">
-                <strong>Retention Level:</strong>
-                <span style={{ color: getConsistencyColor(aiInsights.learningEfficiency.retention) }}>
-                  {aiInsights.learningEfficiency.retention}
-                </span>
+          {/* Consistency Metrics */}
+          <div className="section-card">
+            <h2 className="section-title">Consistency Metrics</h2>
+            <div className="consistency-content">
+              <div className="consistency-item">
+                <div className="consistency-stat">
+                  <span className="stat-number">{currentStreak}</span>
+                  <span className="stat-unit">day streak</span>
+                </div>
+                <p className="stat-description">Keep it up! Consistency is key to success.</p>
               </div>
-              <div className="efficiency-item">
-                <strong>Efficiency Score:</strong> {aiInsights.learningEfficiency.efficiencyScore}
+              
+              <div className="consistency-item">
+                <div className="consistency-stat">
+                  <span className="stat-number">{aiInsights.consistency.averageSessionsPerDay}</span>
+                  <span className="stat-unit">sessions/day</span>
+                </div>
+                <p className="stat-description">Your average study sessions per active day.</p>
               </div>
-              <div className="efficiency-item">
-                <strong>Improvement Areas:</strong> {aiInsights.learningEfficiency.improvementAreas}
+              
+              <div className="consistency-item">
+                <div className="consistency-stat">
+                  <span className="stat-number">{aiInsights.productivity.consistencyScore}</span>
+                  <span className="stat-unit">score</span>
+                </div>
+                <p className="stat-description">
+                  {aiInsights.productivity.consistencyScore === 'Excellent' && 'Outstanding consistency! Keep going.'}
+                  {aiInsights.productivity.consistencyScore === 'Good' && 'Good progress. Try to study daily.'}
+                  {aiInsights.productivity.consistencyScore === 'Needs Improvement' && 'Build a daily study habit.'}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="insight-card">
-            <h3>🤖 AI Feedback</h3>
-            <div className="feedback-content">
-              <div className="recommendations">
-                <h4>Recommendations:</h4>
-                <ul>
-                  {aiInsights.aiFeedback.recommendations.map((r, i) => <li key={i}>{r}</li>)}
-                </ul>
+          {/* Study Patterns */}
+          <div className="section-card">
+            <h2 className="section-title">Study Patterns</h2>
+            <div className="patterns-grid">
+              <div className="pattern-card">
+                <div className="pattern-header">
+                  <span className="pattern-icon">📈</span>
+                  <span className="pattern-title">Trend</span>
+                </div>
+                <p className="pattern-value">{aiInsights.productivity.monthlyTrend}</p>
+                <p className="pattern-desc">
+                  {aiInsights.productivity.monthlyTrend === 'Improving' 
+                    ? 'Your study duration is increasing over time.'
+                    : 'Focus on maintaining consistent study sessions.'}
+                </p>
               </div>
-              <div className="strategies">
-                <h4>Study Strategies:</h4>
-                <p>{aiInsights.aiFeedback.strategies}</p>
+              
+              <div className="pattern-card">
+                <div className="pattern-header">
+                  <span className="pattern-icon">⚡</span>
+                  <span className="pattern-title">Activity</span>
+                </div>
+                <p className="pattern-value">{aiInsights.productivity.weeklyProductivity}</p>
+                <p className="pattern-desc">
+                  {aiInsights.productivity.weeklyProductivity === 'Active'
+                    ? 'You have been actively studying this week.'
+                    : 'Start building your study routine.'}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="insight-card">
-            <h3>🏆 Competitive Benchmarking</h3>
-            <div className="benchmarking-content">
-              <div className="benchmark-item">
-                <strong>Current Rank:</strong> {aiInsights.competitiveBenchmarking.currentRank}
-              </div>
-              <div className="benchmark-item">
-                <strong>Improvement Areas:</strong>
-                <ul>
-                  {aiInsights.competitiveBenchmarking.improvementAreas.map((area, i) => (
-                    <li key={i}>{area}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="benchmark-item">
-                <strong>Path to Top 1%:</strong> {aiInsights.competitiveBenchmarking.top1PercentPath}
+          {/* Recommendations */}
+          <div className="section-card recommendations">
+            <h2 className="section-title">Recommendations</h2>
+            <div className="recommendations-list">
+              {currentStreak < 7 && (
+                <div className="recommendation-item">
+                  <span className="rec-icon">🎯</span>
+                  <div className="rec-content">
+                    <p className="rec-title">Build a Streak</p>
+                    <p className="rec-desc">Try to study every day to build a strong habit. Current streak: {currentStreak} days.</p>
+                  </div>
+                </div>
+              )}
+              
+              {currentStreak >= 7 && (
+                <div className="recommendation-item">
+                  <span className="rec-icon">🔥</span>
+                  <div className="rec-content">
+                    <p className="rec-title">Great Streak!</p>
+                    <p className="rec-desc">You've studied {currentStreak} days in a row. Keep maintaining this excellent habit!</p>
+                  </div>
+                </div>
+              )}
+              
+              {parseFloat(aiInsights.consistency.averageSessionsPerDay) < 2 && (
+                <div className="recommendation-item">
+                  <span className="rec-icon">📚</span>
+                  <div className="rec-content">
+                    <p className="rec-title">Increase Study Frequency</p>
+                    <p className="rec-desc">Consider multiple study sessions per day for better retention and focus.</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="recommendation-item">
+                <span className="rec-icon">💡</span>
+                <div className="rec-content">
+                  <p className="rec-title">Optimize Study Time</p>
+                  <p className="rec-desc">Your best performing period is {aiInsights.performance.bestPeriod}. Try to replicate that pattern.</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/*  STATS TAB */}
+      {/* STATISTICS TAB */}
       {activeTab === 'stats' && (
-        <div className="stats-container">
-          <div className="stats-header">
-            <h3>📈 Study Statistics</h3>
-            <p>Real-time data from your study sessions</p>
-          </div>
-          
-          <div className="stats-grid">
-            <div className="stat-card">
-              <h4>Total Tasks</h4>
-              <p className="stat-value">{totalTasks}</p>
+        <div className="stats-content">
+          <div className="stats-grid-page">
+            <div className="stat-box">
+              <p className="stat-box-label">Total Sessions</p>
+              <p className="stat-box-value">{totalTasks}</p>
+              <p className="stat-box-desc">Study sessions completed</p>
             </div>
-            <div className="stat-card">
-              <h4>Total Study Time</h4>
-              <p className="stat-value">{totalDuration}</p>
+            
+            <div className="stat-box">
+              <p className="stat-box-label">Total Time</p>
+              <p className="stat-box-value">{totalDuration}</p>
+              <p className="stat-box-desc">Hours spent studying</p>
             </div>
-            <div className="stat-card">
-              <h4>Last Activity (MM/DD/YY)</h4>
-              <p className="stat-value">
-                {lastTaskDate ? new Date(lastTaskDate).toLocaleDateString() : 'N/A'}
+            
+            <div className="stat-box">
+              <p className="stat-box-label">Active Days</p>
+              <p className="stat-box-value">{uniqueDays}</p>
+              <p className="stat-box-desc">Days with study activity</p>
+            </div>
+            
+            <div className="stat-box">
+              <p className="stat-box-label">Last Activity</p>
+              <p className="stat-box-value">
+                {lastTaskDate ? new Date(lastTaskDate).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric',
+                  year: 'numeric'
+                }) : 'N/A'}
               </p>
+              <p className="stat-box-desc">Most recent session</p>
             </div>
           </div>
-          
-          <div className="data-status">
-            <p><strong>Data Status:</strong> {aiInsights.hasData ? '✅ Available' : '❌ No data yet'}</p>
-            <p><strong>Message:</strong> {aiInsights.message}</p>
+
+          {/* Average Durations */}
+          <div className="section-card">
+            <h2 className="section-title">Average Study Durations</h2>
+            <div className="averages-list">
+              <div className="average-row">
+                <span className="avg-period">Weekly</span>
+                <span className="avg-value">{averages.weekly}</span>
+              </div>
+              <div className="average-row">
+                <span className="avg-period">Monthly</span>
+                <span className="avg-value">{averages.monthly}</span>
+              </div>
+              <div className="average-row">
+                <span className="avg-period">6-Month</span>
+                <span className="avg-value">{averages.sixMonthly}</span>
+              </div>
+              <div className="average-row">
+                <span className="avg-period">Yearly</span>
+                <span className="avg-value">{averages.yearly}</span>
+              </div>
+              <div className="average-row highlight">
+                <span className="avg-period">Overall</span>
+                <span className="avg-value">{averages.overall}</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* STREAK GRAPH TAB */}
-      {activeTab === 'streakgraph' && <StreakGraph />}
+      {/* STREAK TAB */}
+      {activeTab === 'streak' && <StreakGraph />}
     </div>
   );
 };

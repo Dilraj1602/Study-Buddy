@@ -37,7 +37,7 @@ const StreakGraph = () => {
     // Generate calendar data for each month
     for (let month = 0; month < 12; month++) {
       const firstDay = dayjs().year(year).month(month).startOf('month');
-      const daysInMonth = firstDay.daysInMonth();
+      const daysInMonth = firstDay.daysInMonth(); 
       const startWeekday = firstDay.day(); // 0 = Sunday
       
       const days = [];

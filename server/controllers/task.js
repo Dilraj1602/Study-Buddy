@@ -23,7 +23,7 @@ exports.getTasks = async (req, res) => {
     const cached = await redisClient.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
     const tasks = await Task.find({ user: req.user }).sort({ date: -1 });
-    await redisClient.set(cacheKey, JSON.stringify(tasks), { EX: 300 });
+    await redisClient.set(cacheKey, JSON.stringify(tasks), { EX: 300 }); // for 5 min
     res.json(tasks);
   } catch (error) {
     console.error('Error getting tasks:', error);

@@ -4,7 +4,7 @@ import './css/register.css';
 import { sendSignupOtp, verifySignupOtp, register } from '../api';
 
 const RegisterPage = () => {
-  const [step, setStep] = useState(1); // 1: Email, 2: OTP, 3: Registration
+  const [step, setStep] = useState(1); 
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [tempUserId, setTempUserId] = useState('');

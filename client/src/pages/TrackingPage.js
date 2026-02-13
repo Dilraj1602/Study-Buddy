@@ -79,7 +79,7 @@ const TrackingPage = () => {
         <p>Personalized analysis of your study patterns and recommendations</p>
       </div>
 
-      {/* ✅ Tab Navigation */}
+      {/*  Tab Navigation */}
       <div className="tab-navigation">
         <button
           className={`tab-button ${activeTab === 'insights' ? 'active' : ''}`}
@@ -101,7 +101,7 @@ const TrackingPage = () => {
         </button>
       </div>
 
-      {/* ✅ AI INSIGHTS TAB */}
+      {/* AI INSIGHTS TAB */}
       {activeTab === 'insights' && (
         <div className="insights-container">
           <div className="insight-card">
@@ -218,7 +218,7 @@ const TrackingPage = () => {
         </div>
       )}
 
-      {/* ✅ STATS TAB */}
+      {/*  STATS TAB */}
       {activeTab === 'stats' && (
         <div className="stats-container">
           <div className="stats-header">
@@ -250,7 +250,7 @@ const TrackingPage = () => {
         </div>
       )}
 
-      {/* ✅ STREAK GRAPH TAB */}
+      {/* STREAK GRAPH TAB */}
       {activeTab === 'streakgraph' && <StreakGraph />}
     </div>
   );

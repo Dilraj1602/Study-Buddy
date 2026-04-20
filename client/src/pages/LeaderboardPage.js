@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { getLeaderboard } from '../api';
 import '../pages/css/dashboard.css';
 
 const formatDuration = (seconds) => {
@@ -17,14 +17,7 @@ const LeaderboardPage = () => {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const config = { withCredentials: true };
-        
-        if (token) {
-          config.headers = { Authorization: `Bearer ${token}` };
-        }
-        
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/tasks/leaderboard`, config);
+        const res = await getLeaderboard();
         setLeaderboard(res.data);
       } catch (err) {
         setError('Failed to load leaderboard');

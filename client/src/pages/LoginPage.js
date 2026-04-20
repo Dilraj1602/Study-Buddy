@@ -30,25 +30,13 @@ const LoginPage = () => {
   useEffect(() => {
     const checkLoginStatus = async () => {
       try {
-        const token = localStorage.getItem('token');
-        // console.log('LoginPage - Checking login status, token found:', !!token);
-        if (token) {
-          const config = { withCredentials: true, headers: { Authorization: `Bearer ${token}` } };
-          const res = await axios.get(`${API_URL}/auth/current-user`, config);
-          // console.log('LoginPage - Auth response:', res.data);
-          if (res.data.loggedIn) {
-            // console.log('LoginPage - User is logged in, redirecting to dashboard');
-            navigate('/dashboard');
-                  } else {
-          // console.log('LoginPage - User is not logged in, showing login form');
+        const res = await axios.get(`${API_URL}/auth/current-user`, { withCredentials: true });
+        if (res.data.loggedIn) {
+          navigate('/dashboard');
         }
-      } else {
-        // console.log('LoginPage - No token found, showing login form');
+      } catch (error) {
+        // If there's an error, user is not logged in, continue with login form
       }
-    } catch (error) {
-      // If there's an error, user is not logged in, continue with login form
-      // console.log('LoginPage - Error checking login status:', error.message);
-    }
     };
 
     checkLoginStatus();
@@ -68,8 +56,8 @@ const LoginPage = () => {
       alert('Please enter a valid email.');
       return false;
     }
-    if (form.password.length < 4) {
-      alert('Password must be at least 4 characters.');
+    if (form.password.length < 12) {
+      alert('Password must be at least 12 characters.');
       return false;
     }
     return true;
@@ -80,13 +68,8 @@ const LoginPage = () => {
     if (!validate()) return;
     setLoading(true);
     try {
-      const response = await login(form);
-      // console.log('Login response:', response);
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        // console.log('Token stored, redirecting...');
-        navigate('/dashboard');
-      }
+      await login(form);
+      navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
       alert(err.response?.data?.message || 'Login failed');

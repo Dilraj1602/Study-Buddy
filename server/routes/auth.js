@@ -17,7 +17,7 @@ const registerValidation = [
   body('firstName').trim().notEmpty().withMessage('First name is required'),
   body('lastName').trim().notEmpty().withMessage('Last name is required'),
   body('email').isEmail().withMessage('Valid email is required'),
-  body('password').isLength({ min: 4 }).withMessage('Password must be at least 4 characters'),
+  body('password').isLength({ min: 12 }).withMessage('Password must be at least 12 characters'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -47,7 +47,7 @@ router.get('/current-user', getCurrentUser);
 // Password management routes
 router.post('/change-password', auth, [
   body('currentPassword').notEmpty().withMessage('Current password is required'),
-  body('newPassword').isLength({ min: 4 }).withMessage('New password must be at least 4 characters'),
+  body('newPassword').isLength({ min: 12 }).withMessage('New password must be at least 12 characters'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -83,7 +83,7 @@ router.post('/verify-otp', authLimiter, [
 router.post('/verify-reset-code', authLimiter, [
   body('email').isEmail().withMessage('Valid email is required'),
   body('code').notEmpty().withMessage('Verification code is required'),
-  body('newPassword').isLength({ min: 4 }).withMessage('New password must be at least 4 characters'),
+  body('newPassword').isLength({ min: 12 }).withMessage('New password must be at least 12 characters'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

@@ -112,6 +112,12 @@ exports.createTask = async (req, res) => {
     const task = await Task.create({ date, tasks, duration, user: req.user });
     // Add the task reference to the user's tasks array
     await User.findByIdAndUpdate(req.user, { $push: { tasks: task._id } });
+
+    // Invalidate caches
+    await redisClient.del(`tasks:${req.user}`);
+    await redisClient.del(`tracking:insights:${req.user}`);
+    await redisClient.del('leaderboard');
+
     res.json(task);
   } catch (error) {
     console.error('Error creating task:', error);
@@ -128,6 +134,12 @@ exports.updateTask = async (req, res) => {
       { new: true }
     );
     if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    // Invalidate caches
+    await redisClient.del(`tasks:${req.user}`);
+    await redisClient.del(`tracking:insights:${req.user}`);
+    await redisClient.del('leaderboard');
+
     res.json(task);
   } catch (error) {
     console.error('Error updating task:', error);
@@ -139,6 +151,15 @@ exports.deleteTask = async (req, res) => {
   try {
     const task = await Task.findOneAndDelete({ _id: req.params.id, user: req.user });
     if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    // Remove task from user's tasks array
+    await User.findByIdAndUpdate(req.user, { $pull: { tasks: req.params.id } });
+
+    // Invalidate caches
+    await redisClient.del(`tasks:${req.user}`);
+    await redisClient.del(`tracking:insights:${req.user}`);
+    await redisClient.del('leaderboard');
+
     res.json({ message: 'Task deleted' });
   } catch (error) {
     console.error('Error deleting task:', error);

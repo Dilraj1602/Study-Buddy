@@ -344,10 +344,7 @@ exports.getTrackingInsights = async (req, res) => {
       insights = getDefaultInsights(user, studyStatsData, tasks);
     }
 
-
-     await redisClient.set(cacheKey, JSON.stringify(responseData), { EX: 300 });
-
-    res.json({
+    const responseData = {
       message: 'AI insights generated successfully',
       insights,
       hasData: true,
@@ -356,7 +353,11 @@ exports.getTrackingInsights = async (req, res) => {
         totalStudyTime: studyStatsData.totals.hours,
         lastActivity: tasks[0]?.createdAt
       }
-    });
+    };
+
+    await redisClient.set(cacheKey, JSON.stringify(responseData), { EX: 300 });
+
+    res.json(responseData);
 
   } catch (error) {
     console.error('Tracking insights error:', error);

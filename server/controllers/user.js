@@ -29,28 +29,64 @@ exports.updateProfile = async (req, res) => {
 
 exports.getLeaderboard = async (req, res) => {
   try {
-
     const cached = await redisClient.get('leaderboard');
     if (cached) return res.json(JSON.parse(cached));
 
-    const users = await User.find({}, 'firstName lastName tasks');
-    const leaderboard = [];
-    for (const user of users) {
-      const tasks = await Task.find({ _id: { $in: user.tasks } });
-      let totalSeconds = 0;
-      for (const task of tasks) {
-        const [h, m, s] = task.duration.split(':').map(Number);
-        totalSeconds += h * 3600 + m * 60 + s;
+    // Use aggregation pipeline to avoid N+1 queries
+    const leaderboard = await Task.aggregate([
+      {
+        $group: {
+          _id: '$user',
+          totalDuration: {
+            $sum: {
+              $cond: [
+                { $ne: ['$duration', null] },
+                {
+                  $let: {
+                    vars: {
+                      parts: { $split: ['$duration', ':'] }
+                    },
+                    in: {
+                      $add: [
+                        { $multiply: [{ $toInt: { $arrayElemAt: ['$$parts', 0] } }, 3600] },
+                        { $multiply: [{ $toInt: { $arrayElemAt: ['$$parts', 1] } }, 60] },
+                        { $toInt: { $arrayElemAt: ['$$parts', 2] } }
+                      ]
+                    }
+                  }
+                },
+                0
+              ]
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      {
+        $unwind: '$userInfo'
+      },
+      {
+        $project: {
+          userId: '$_id',
+          firstName: '$userInfo.firstName',
+          lastName: '$userInfo.lastName',
+          totalDuration: 1,
+          _id: 0
+        }
+      },
+      {
+        $sort: { totalDuration: -1 }
       }
-      leaderboard.push({
-        userId: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        totalDuration: totalSeconds
-      });
-    }
-    leaderboard.sort((a, b) => b.totalDuration - a.totalDuration);
-    await redisClient.set('leaderboard', JSON.stringify(leaderboard), { EX: 300 }); // Cache for 5 min
+    ]);
+
+    await redisClient.set('leaderboard', JSON.stringify(leaderboard), { EX: 300 });
     res.json(leaderboard);
   } catch (err) {
     console.error('Leaderboard error:', err);

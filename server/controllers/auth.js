@@ -6,8 +6,7 @@ const { sendPasswordResetEmail, sendSignupVerificationEmail } = require('../conf
 
 exports.sendSignupOtp = async (req, res) => {
   const { email } = req.body;
-  // console.log('Send signup OTP endpoint hit');
-  
+
   try {
     if (!email) {
       return res.status(400).json({ message: 'Email is required' });
@@ -15,33 +14,43 @@ exports.sendSignupOtp = async (req, res) => {
 
     // Check if email already exists
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    if (existingUser && existingUser.isEmailVerified) {
       return res.status(400).json({ message: 'An account with this email already exists' });
     }
 
     // Generate a 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Create a temporary user document with OTP
-    const tempUser = await User.create({
-      email,
-      signupOtp: otp,
-      signupOtpExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-      isEmailVerified: false
-    });
+
+    // Hash the OTP before storing
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    // Create or update temporary user document with hashed OTP
+    let tempUser = existingUser;
+    if (!tempUser) {
+      tempUser = await User.create({
+        email,
+        signupOtp: hashedOtp,
+        signupOtpExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+        signupOtpAttempts: 0,
+        isEmailVerified: false
+      });
+    } else {
+      tempUser.signupOtp = hashedOtp;
+      tempUser.signupOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+      tempUser.signupOtpAttempts = 0;
+      await tempUser.save();
+    }
 
     // Send email with OTP
     const emailSent = await sendSignupVerificationEmail(email, otp);
-    
+
     if (emailSent) {
-      res.json({ 
-        message: 'Verification code sent to your email', 
+      res.json({
+        message: 'Verification code sent to your email',
         email,
-        tempUserId: tempUser._id 
+        tempUserId: tempUser._id
       });
     } else {
-      // If email fails, delete the temp user and return error
-      await User.findByIdAndDelete(tempUser._id);
       res.status(500).json({ message: 'Failed to send verification email. Please try again.' });
     }
   } catch (err) {
@@ -53,7 +62,7 @@ exports.sendSignupOtp = async (req, res) => {
 // New function to verify signup OTP
 exports.verifySignupOtp = async (req, res) => {
   const { email, otp, tempUserId } = req.body;
-  
+
   try {
     if (!email || !otp || !tempUserId) {
       return res.status(400).json({ message: 'Email, OTP, and temporary user ID are required' });
@@ -65,23 +74,33 @@ exports.verifySignupOtp = async (req, res) => {
       return res.status(400).json({ message: 'Invalid verification request' });
     }
 
-    // Check if OTP matches and is not expired
-    if (tempUser.signupOtp !== otp) {
+    // Check attempt counter to prevent brute force
+    if (tempUser.signupOtpAttempts >= 5) {
+      return res.status(429).json({ message: 'Too many failed attempts. Please request a new code.' });
+    }
+
+    // Check if OTP is expired
+    if (!tempUser.signupOtpExpires || tempUser.signupOtpExpires < new Date()) {
+      return res.status(400).json({ message: 'Verification code has expired. Please request a new one.' });
+    }
+
+    // Compare provided OTP with stored hash
+    const otpMatch = await bcrypt.compare(otp, tempUser.signupOtp);
+    if (!otpMatch) {
+      // Increment failed attempts
+      tempUser.signupOtpAttempts = (tempUser.signupOtpAttempts || 0) + 1;
+      await tempUser.save();
       return res.status(400).json({ message: 'Invalid verification code' });
     }
 
-    if (tempUser.signupOtpExpires < new Date()) {
-      return res.status(400).json({ message: 'Verification code has expired' });
-    }
+    // Mark email as verified
+    tempUser.isEmailVerified = true;
+    tempUser.signupOtp = undefined;
+    tempUser.signupOtpExpires = undefined;
+    tempUser.signupOtpAttempts = 0;
+    await tempUser.save();
 
-    // Mark email as verified using updateOne to avoid validation issues
-    await User.findByIdAndUpdate(tempUserId, {
-      isEmailVerified: true,
-      signupOtp: undefined,
-      signupOtpExpires: undefined
-    });
-
-    res.json({ 
+    res.json({
       message: 'Email verified successfully. You can now complete your registration.',
       email,
       tempUserId: tempUserId
@@ -132,15 +151,14 @@ exports.register = async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       path: '/',
     };
-    
+
     res.cookie('token', token, cookieOptions);
-    res.json({ 
-      user: { 
-        id: tempUser._id, 
-        username, 
-        email: tempUser.email 
-      }, 
-      token 
+    res.json({
+      user: {
+        id: tempUser._id,
+        username,
+        email: tempUser.email
+      }
     });
   } catch (err) {
     console.error('Registration error:', err);
@@ -156,7 +174,6 @@ exports.login = async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ message: 'Invalid credentials' });
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    // Construct username for response
     const username = `${user.firstName} ${user.lastName}`;
     const cookieOptions = {
       httpOnly: true,
@@ -166,7 +183,7 @@ exports.login = async (req, res) => {
       path: '/',
     };
     res.cookie('token', token, cookieOptions);
-    res.json({ user: { id: user._id, username, email: user.email }, token });
+    res.json({ user: { id: user._id, username, email: user.email } });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -236,8 +253,8 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ message: 'Current password and new password are required' });
     }
 
-    if (newPassword.length < 4) {
-      return res.status(400).json({ message: 'New password must be at least 4 characters long' });
+    if (newPassword.length < 12) {
+      return res.status(400).json({ message: 'New password must be at least 12 characters long' });
     }
 
     if (newPassword === currentPassword) {
@@ -280,27 +297,35 @@ exports.forgotPassword = async (req, res) => {
 
     const user = await User.findOne({ email });
 
+    // Return generic message whether user exists or not to prevent enumeration
+    const genericResponse = {
+      message: 'If an account with this email exists, a verification code has been sent.',
+      email
+    };
+
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.json(genericResponse);
     }
 
     // Generate a 6-digit verification code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Store verification code in user document with expiration
-    user.resetPasswordCode = verificationCode;
+
+    // Hash the verification code before storing
+    const hashedCode = await bcrypt.hash(verificationCode, 10);
+
+    // Store hashed verification code in user document with expiration
+    user.resetPasswordCode = hashedCode;
     user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    user.resetPasswordAttempts = 0; // Initialize attempt counter
     await user.save();
 
-    // Send email with verification code
+    // Send email with OTP
     const emailSent = await sendPasswordResetEmail(email, verificationCode);
-    
+
     if (emailSent) {
-      res.json({ message: 'A verification code has been sent to your email address.', email });
+      res.json(genericResponse);
     } else {
-      // If email fails, still return success but log the issue
-      // console.log(`Verification code for ${email}: ${verificationCode}`);
-      res.json({ message: 'A verification code has been sent to your email address.', email });
+      res.json(genericResponse);
     }
   } catch (err) {
     console.error('Forgot password error:', err);
@@ -318,20 +343,37 @@ exports.verifyOtp = async (req, res) => {
     }
 
     const user = await User.findOne({ email });
+
+    // Generic error message to prevent enumeration
+    const genericError = { message: 'Invalid or expired verification code' };
+
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(400).json(genericError);
     }
 
-    // Check if code matches and is not expired
-    if (user.resetPasswordCode !== code) {
-      return res.status(400).json({ message: 'Invalid verification code' });
+    // Check attempt counter to prevent brute force
+    if (user.resetPasswordAttempts >= 5) {
+      return res.status(429).json({ message: 'Too many failed attempts. Please try again later.' });
     }
 
-    if (user.resetPasswordExpires < new Date()) {
-      return res.status(400).json({ message: 'Verification code has expired' });
+    // Check if code is expired
+    if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+      return res.status(400).json(genericError);
     }
 
-    // Just verify the code without updating password
+    // Compare provided code with stored hash
+    const codeMatch = await bcrypt.compare(code, user.resetPasswordCode);
+    if (!codeMatch) {
+      // Increment failed attempts
+      user.resetPasswordAttempts = (user.resetPasswordAttempts || 0) + 1;
+      await user.save();
+      return res.status(400).json(genericError);
+    }
+
+    // Reset attempt counter on successful verification
+    user.resetPasswordAttempts = 0;
+    await user.save();
+
     res.json({ message: 'Verification code is valid' });
   } catch (err) {
     console.error('Verify OTP error:', err);
@@ -348,8 +390,8 @@ exports.verifyResetCode = async (req, res) => {
       return res.status(400).json({ message: 'Email, verification code, and new password are required' });
     }
 
-    if (newPassword.length < 4) {
-      return res.status(400).json({ message: 'New password must be at least 4 characters long' });
+    if (newPassword.length < 12) {
+      return res.status(400).json({ message: 'New password must be at least 12 characters long' });
     }
 
     const user = await User.findOne({ email });
@@ -357,13 +399,23 @@ exports.verifyResetCode = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Check if code matches and is not expired
-    if (user.resetPasswordCode !== code) {
-      return res.status(400).json({ message: 'Invalid verification code' });
+    // Check attempt counter to prevent brute force
+    if (user.resetPasswordAttempts >= 5) {
+      return res.status(429).json({ message: 'Too many failed attempts. Please try again later.' });
     }
 
-    if (user.resetPasswordExpires < new Date()) {
-      return res.status(400).json({ message: 'Verification code has expired' });
+    // Check if code is expired
+    if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+      return res.status(400).json({ message: 'Invalid or expired verification code' });
+    }
+
+    // Compare provided code with stored hash
+    const codeMatch = await bcrypt.compare(code, user.resetPasswordCode);
+    if (!codeMatch) {
+      // Increment failed attempts
+      user.resetPasswordAttempts = (user.resetPasswordAttempts || 0) + 1;
+      await user.save();
+      return res.status(400).json({ message: 'Invalid or expired verification code' });
     }
 
     // Hash new password
@@ -373,6 +425,7 @@ exports.verifyResetCode = async (req, res) => {
     user.password = hashedNewPassword;
     user.resetPasswordCode = undefined;
     user.resetPasswordExpires = undefined;
+    user.resetPasswordAttempts = 0;
     await user.save();
 
     res.json({ message: 'Password reset successfully' });

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -27,17 +27,6 @@ const AverageDurationChart = ({ averageDurations }) => {
     if (hours <= 8) return { main: '#10B981', light: '#6EE7B7' };   // Green - Success/Optimal
     return { main: '#F59E0B', light: '#FCD34D' };                    // Orange - Caution/High
   };
-
-  // Debug logging
-  React.useEffect(() => {
-    console.log('🎨 Chart received data:', {
-      weekly: averageDurations.weekly / 3600,
-      monthly: averageDurations.monthly / 3600,
-      sixMonth: averageDurations.sixMonth / 3600,
-      yearly: averageDurations.yearly / 3600,
-      overall: averageDurations.overall / 3600,
-    });
-  }, [averageDurations]);
 
   const chartData = useMemo(() => {
     // NEW ORDER: Weekly, Monthly, 6-Month, Yearly, Overall (Daily removed)

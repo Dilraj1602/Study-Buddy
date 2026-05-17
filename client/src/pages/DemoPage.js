@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isLoggedIn } from '../utils/data';
+import { useAuth } from '../context/AuthContext';
 
 const steps = [
   {
@@ -23,6 +23,7 @@ const steps = [
 
 const DemoPage = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   
   return (
   <div style={{ minHeight: '100vh', background: '#f6f8fa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '3rem 1rem' }}>
@@ -50,15 +51,7 @@ const DemoPage = () => {
       ))}
     </div>
     <button
-      onClick={() => {
-        // Check if user is logged in
-        const token = localStorage.getItem('token');
-        if (token) {
-          navigate('/dashboard');
-        } else {
-          navigate('/login');
-        }
-      }}
+      onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login')}
       style={{ marginTop: 40, padding: '0.9rem 2.5rem', fontSize: '1.1rem', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.5px', boxShadow: '0 2px 12px rgba(37,99,235,0.10)' }}
     >
       Get Started

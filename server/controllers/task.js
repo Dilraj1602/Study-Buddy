@@ -1,7 +1,13 @@
 const Task = require('../models/Task');
 const User = require('../models/User');
 const { body, validationResult } = require('express-validator');
-const redisClient = require('../config/redis');
+const { cacheGet, cacheSet, cacheDel } = require('../utils/cache');
+
+const durationToSeconds = (duration) => {
+  if (typeof duration !== 'string') return 0;
+  const [hours = 0, minutes = 0, seconds = 0] = duration.split(':').map(Number);
+  return (hours || 0) * 3600 + (minutes || 0) * 60 + (seconds || 0);
+};
 
 exports.taskValidation = [
   body('date').notEmpty().withMessage('Date is required'),
@@ -20,10 +26,10 @@ exports.getTasks = async (req, res) => {
   try {
     const userId = req.user;
     const cacheKey = `tasks:${userId}`;
-    const cached = await redisClient.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
-    const tasks = await Task.find({ user: req.user }).sort({ date: -1 });
-    await redisClient.set(cacheKey, JSON.stringify(tasks), { EX: 300 }); // for 5 min
+    const cached = await cacheGet(cacheKey);
+    if (cached) return res.json(cached);
+    const tasks = await Task.find({ user: req.user }).sort({ date: -1 }).lean();
+    await cacheSet(cacheKey, tasks, 300);
     res.json(tasks);
   } catch (error) {
     console.error('Error getting tasks:', error);
@@ -109,14 +115,12 @@ exports.createTask = async (req, res) => {
   try {
     const { date, tasks, duration } = req.body;
     if (!date || !tasks || !duration) return res.status(400).json({ message: 'All fields required' });
-    const task = await Task.create({ date, tasks, duration, user: req.user });
+    const task = await Task.create({ date, tasks, duration, durationSeconds: durationToSeconds(duration), user: req.user });
     // Add the task reference to the user's tasks array
     await User.findByIdAndUpdate(req.user, { $push: { tasks: task._id } });
 
     // Invalidate caches
-    await redisClient.del(`tasks:${req.user}`);
-    await redisClient.del(`tracking:insights:${req.user}`);
-    await redisClient.del('leaderboard');
+    await cacheDel(`tasks:${req.user}`, `tracking:insights:${req.user}`, 'leaderboard');
 
     res.json(task);
   } catch (error) {
@@ -130,15 +134,13 @@ exports.updateTask = async (req, res) => {
     const { date, tasks, duration } = req.body;
     const task = await Task.findOneAndUpdate(
       { _id: req.params.id, user: req.user },
-      { date, tasks, duration },
+      { date, tasks, duration, durationSeconds: durationToSeconds(duration) },
       { new: true }
     );
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
     // Invalidate caches
-    await redisClient.del(`tasks:${req.user}`);
-    await redisClient.del(`tracking:insights:${req.user}`);
-    await redisClient.del('leaderboard');
+    await cacheDel(`tasks:${req.user}`, `tracking:insights:${req.user}`, 'leaderboard');
 
     res.json(task);
   } catch (error) {
@@ -156,9 +158,7 @@ exports.deleteTask = async (req, res) => {
     await User.findByIdAndUpdate(req.user, { $pull: { tasks: req.params.id } });
 
     // Invalidate caches
-    await redisClient.del(`tasks:${req.user}`);
-    await redisClient.del(`tracking:insights:${req.user}`);
-    await redisClient.del('leaderboard');
+    await cacheDel(`tasks:${req.user}`, `tracking:insights:${req.user}`, 'leaderboard');
 
     res.json({ message: 'Task deleted' });
   } catch (error) {

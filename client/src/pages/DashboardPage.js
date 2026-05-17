@@ -1,11 +1,10 @@
-import React, { useState, useMemo, useRef } from 'react';
-import initialTasksData from '../utils/data';
+import React, { useState, useMemo } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import './css/dashboard.css';
-import { getTasks, createTask, updateTask, deleteTask } from '../api';
 import MonthlyChart from '../components/MonthlyChart';
 import AverageDurationChart from '../components/AverageDurationChart';
 import { Search, X, Filter, Calendar, ChevronDown, Plus, Edit2, Trash2, Check } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 const FILTERS = [
   { label: 'All', value: 'All' },
@@ -64,22 +63,10 @@ function durationToSeconds(duration) {
   return h * 3600 + m * 60 + s;
 }
 
-function secondsToHours(seconds) {
-  return (seconds / 3600).toFixed(2);
-}
-
 function addDays(date, days) {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
-}
-
-// Color coding utility function based on duration ranges
-function getDurationColor(hours) {
-  if (hours === 0) return '#9CA3AF'; // Gray - No data
-  if (hours <= 4) return '#EF4444';   // Red - Warning/Low
-  if (hours <= 8) return '#10B981';   // Green - Success/Optimal
-  return '#F59E0B';                   // Orange - Caution/High
 }
 
 function getDurationColorScheme(hours) {
@@ -115,20 +102,14 @@ function getDurationColorScheme(hours) {
   };
 }
 
-const showToast = (fn, message) => {
-  const id = fn(message);
-  setTimeout(() => toast.dismiss(id), 5000);
-};
-
 const DashboardPage = () => {
-  const [tasks, setTasks] = useState(initialTasksData);
+  const { tasks, loading, error, fetchTasks, addTask, modifyTask, removeTask } = useApp();
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('date_desc');
   const [editTaskId, setEditTaskId] = useState(null);
   const [editForm, setEditForm] = useState({ tasks: '', duration: '' });
   const [addForm, setAddForm] = useState({ tasks: '', duration: '', date: '' });
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
@@ -136,20 +117,8 @@ const DashboardPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const tasksPerPage = 9;  // Changed from 7 to 9 to fill 3x3 grid in card view
 
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
   const todayStr = today.toISOString().slice(0, 10);
-
-  React.useEffect(() => {
-    async function fetchTasks() {
-      try {
-        const res = await getTasks();
-        setTasks(res.data);
-      } catch (err) {
-        toast.error('Failed to load tasks');
-      }
-    }
-    fetchTasks();
-  }, []);
 
   const filteredTasks = useMemo(() => {
     let arr = [...tasks];
@@ -227,14 +196,6 @@ const DashboardPage = () => {
       const totalSeconds = tasks.reduce((acc, t) => acc + durationToSeconds(t.duration), 0);
       return totalSeconds / tasks.length; // Mean duration per session
     };
-
-    // Debug logging
-    console.log('📊 Average Durations Calculation:');
-    console.log('Weekly (7 days):', calculateAverage(7) / 3600, 'hours');
-    console.log('Monthly (30 days):', calculateAverage(30) / 3600, 'hours');
-    console.log('6-Month (182 days):', calculateAverage(182) / 3600, 'hours');
-    console.log('Yearly (365 days):', calculateAverage(365) / 3600, 'hours');
-    console.log('Overall (all sessions):', calculateOverall() / 3600, 'hours');
 
     return {
       weekly: calculateAverage(7),
@@ -329,10 +290,9 @@ const DashboardPage = () => {
         tasks: editForm.tasks.split('\n'),
         duration: editForm.duration
       };
-      const res = await updateTask(task._id, updated);
-      setTasks(prev => prev.map(t => t._id === task._id ? res.data : t));
+      const res = await modifyTask(task._id, updated);
+      if (!res.success) return;
       setEditTaskId(null);
-      showToast(toast.success, 'Log updated!');
     } catch (err) {
       toast.error('Failed to update log');
     }
@@ -347,10 +307,9 @@ const DashboardPage = () => {
         tasks: addForm.tasks.split('\n'),
         duration: addForm.duration
       };
-      const res = await createTask(payload);
-      setTasks(prev => [...prev, res.data]);
+      const res = await addTask(payload);
+      if (!res.success) return;
       setAddForm({ tasks: '', duration: '', date: todayStr });
-      showToast(toast.success, 'Log created!');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add log');
     }
@@ -358,9 +317,8 @@ const DashboardPage = () => {
 
   const handleDelete = async (id) => {
     try {
-      await deleteTask(id);
-      setTasks(prev => prev.filter(t => t._id !== id));
-      showToast(toast.success, 'Log deleted!');
+      const res = await removeTask(id);
+      if (!res.success) return;
     } catch (err) {
       toast.error('Failed to delete log');
     }
@@ -384,6 +342,27 @@ const DashboardPage = () => {
     search,
     sort !== 'date_desc',
   ].filter(Boolean).length;
+
+  if (loading) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-container">
+          <h2 className="dashboard-title">Loading your dashboard...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-container">
+          <h2 className="dashboard-title">Unable to load dashboard</h2>
+          <button className="submit-btn" onClick={fetchTasks}>Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-page">

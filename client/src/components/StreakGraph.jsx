@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { getTasks } from "../api";
 import dayjs from "dayjs";
 import weekOfYear from "dayjs/plugin/weekOfYear";
 import "./StreakGraph.css";
+import { useApp } from "../context/AppContext";
 
 dayjs.extend(weekOfYear);
 
 const StreakGraph = () => {
   const currentYear = dayjs().year();
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [taskDates, setTaskDates] = useState(new Set());
   const [streak, setStreak] = useState(0);
   const [totalActive, setTotalActive] = useState(0);
   const [calendarData, setCalendarData] = useState([]);
+  const { tasks } = useApp();
 
   const calculateStreak = (dates) => {
     let currentStreak = 0;
@@ -67,29 +67,17 @@ const StreakGraph = () => {
     setCalendarData(months);
   };
 
-  const fetchTasks = async (year) => {
-    try {
-      const res = await getTasks();
-      const tasks = res.data;
-
-      const dates = new Set();
-      tasks.forEach((task) => {
-        const dateStr = dayjs(task.date).format("YYYY-MM-DD");
-        if (dayjs(dateStr).year() === year) dates.add(dateStr);
-      });
-
-      setTaskDates(dates);
-      setTotalActive(dates.size);
-      setStreak(calculateStreak(dates));
-      generateCalendar(dates, year);
-    } catch (error) {
-      console.error("Failed to fetch tasks", error);
-    }
-  };
-
   useEffect(() => {
-    fetchTasks(selectedYear);
-  }, [selectedYear]);
+    const dates = new Set();
+    tasks.forEach((task) => {
+      const dateStr = dayjs(task.date).format("YYYY-MM-DD");
+      if (dayjs(dateStr).year() === selectedYear) dates.add(dateStr);
+    });
+
+    setTotalActive(dates.size);
+    setStreak(calculateStreak(dates));
+    generateCalendar(dates, selectedYear);
+  }, [tasks, selectedYear]);
 
   return (
     <div className="streak-container">

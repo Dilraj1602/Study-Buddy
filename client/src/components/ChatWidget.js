@@ -9,7 +9,6 @@ const ChatWidget = ({ frontendData }) => {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [genericMode, setGenericMode] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Listen for logout event to clear chat and show generic mode message
@@ -18,7 +17,6 @@ const ChatWidget = ({ frontendData }) => {
       setMessages([
         { sender: 'bot', text: 'You have logged out. The chatbot is now in generic mode and will not use your personal data.' }
       ]);
-      setGenericMode(true);
     };
     window.addEventListener('user-logged-out', handleLogout);
     return () => {

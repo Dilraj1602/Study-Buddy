@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { changePassword } from '../api';
 import './ProfileDropdown.css';
 
@@ -13,7 +12,6 @@ const ProfileDropdown = ({ user, onLogout }) => {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const navigate = useNavigate();
 
   // Get user initials
   const getInitials = () => {
@@ -33,8 +31,8 @@ const ProfileDropdown = ({ user, onLogout }) => {
       return;
     }
 
-    if (passwordForm.newPassword.length < 4) {
-      setMessage('New password must be at least 4 characters long');
+    if (passwordForm.newPassword.length < 12) {
+      setMessage('New password must be at least 12 characters long');
       return;
     }
 

@@ -1,9 +1,10 @@
 import React, { useRef, useEffect } from 'react';
-import { motion, px } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { slogan, features, testimonials } from '../utils/landingData';
 import studyTrackImg from '../utils/StudyTrack.png';
 import './css/landing.css';
+import { useAuth } from '../context/AuthContext';
 
 const sectionStyle = {
   maxWidth: 900,
@@ -15,8 +16,6 @@ const grid3Col = {
   gridTemplateColumns: 'repeat(3, 1fr)',
   gap: '2rem',
 };
-const gridResponsive = `@media (max-width: 900px) { .landing-grid-3col { grid-template-columns: 1fr !important; } }`;
-
 const stats = [
   { value: '120K+', label: 'Study Logs Tracked' },
   { value: '350K+', label: 'Hours Studied' },
@@ -42,6 +41,7 @@ const howItWorks = [
 const LandingPage = () => {
   const imageRef = useRef();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -71,15 +71,7 @@ const LandingPage = () => {
           <p style={{ fontSize: '1.18rem', color: '#333', marginBottom: 28 }}>{slogan.subtitle}</p>
           <div style={{ display: 'flex', gap: 16, marginBottom: 24, justifyContent: 'center' }}>
             <button onClick={() => navigate('/demo')} style={{ padding: '0.7rem 2.2rem', fontSize: '1rem', borderRadius: 7, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Watch Demo</button>
-            <button onClick={() => {
-              // Check if user is logged in
-              const token = localStorage.getItem('token');
-              if (token) {
-                navigate('/dashboard');
-              } else {
-                navigate('/login');
-              }
-            }} style={{ padding: '0.7rem 2.2rem', fontSize: '1rem', borderRadius: 7, border: 'none', background: '#e0e7ff', color: '#2563eb', fontWeight: 600, cursor: 'pointer' }}>Get Started</button>
+            <button onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login')} style={{ padding: '0.7rem 2.2rem', fontSize: '1rem', borderRadius: 7, border: 'none', background: '#e0e7ff', color: '#2563eb', fontWeight: 600, cursor: 'pointer' }}>Get Started</button>
           </div>
         </motion.div>
         <div className="hero-image-wrapper animate-gradient" style={{ width: '100%', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>

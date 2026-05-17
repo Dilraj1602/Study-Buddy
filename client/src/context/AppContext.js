@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { getTasks, createTask, updateTask, deleteTask } from '../api';
 import toast from 'react-hot-toast';
+import { useAuth } from './AuthContext';
 
 const AppContext = createContext();
 
@@ -87,28 +88,43 @@ const sumDurations = (durations) => {
 };
 
 export const AppProvider = ({ children }) => {
+  const { isAuthenticated, authLoading } = useAuth();
   const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const fetchTasks = useCallback(async () => {
+    if (!isAuthenticated) {
+      setTasks([]);
+      setLoading(false);
+      setError(null);
+      return [];
+    }
+
     setLoading(true);
     setError(null);
     try {
       const res = await getTasks();
-      setTasks(res.data.tasks || res.data || []);
+      const nextTasks = res.data.tasks || res.data || [];
+      setTasks(nextTasks);
+      return nextTasks;
     } catch (err) {
       setError(err);
       console.error('Failed to fetch tasks:', err);
-      toast.error('Failed to load tasks');
+      if (err.response?.status !== 401) {
+        toast.error('Failed to load tasks');
+      }
+      return [];
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    if (!authLoading) {
+      fetchTasks();
+    }
+  }, [authLoading, fetchTasks]);
 
   // CRUD Operations
   const addTask = useCallback(async (taskData) => {

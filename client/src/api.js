@@ -3,12 +3,27 @@ import axios from 'axios';
 const API = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:4000/api/v1',
   withCredentials: true,
+  timeout: 20000,
+});
+
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 export const register = (data) => API.post('/auth/register', data);
 export const login = (data) => API.post('/auth/login', data);
 export const logout = () => API.post('/auth/logout');
 export const getCurrentUser = () => API.get('/auth/current-user');
+
+// OAuth Google functions
+export const googleLogin = (token) => API.post('/oauth/google', { token });
+export const linkGoogleAccount = (googleData) => API.post('/oauth/link-google', googleData);
+export const unlinkGoogleAccount = () => API.post('/oauth/unlink-google');
+export const getOAuthStatus = () => API.get('/oauth/status');
 
 // New signup OTP verification functions
 export const sendSignupOtp = (data) => API.post('/auth/send-signup-otp', data);

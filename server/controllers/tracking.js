@@ -19,21 +19,16 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Task = require('../models/Task');
 const User = require('../models/User');
-const redisClient = require('../config/redis');
+const { cacheGet, cacheSet } = require('../utils/cache');
 
 // Helper function to parse duration from various types
 const parseDuration = (duration) => {
-  console.log('parseDuration called with:', duration, 'type:', typeof duration);
-
   if (typeof duration === 'number' && !isNaN(duration)) {
-    console.log('Duration is number:', duration);
     return duration;
   } else if (typeof duration === 'string') {
-    console.log('Duration is string:', duration);
     // Handle HH:MM:SS format (e.g., "05:03:00")
     if (duration.includes(':')) {
       const parts = duration.split(':');
-      console.log('Duration parts:', parts);
       if (parts.length === 3) {
         const hours = parseInt(parts[0], 10) || 0;
         const minutes = parseInt(parts[1], 10) || 0;
@@ -41,17 +36,14 @@ const parseDuration = (duration) => {
 
         // Convert to total hours (decimal)
         const totalHours = hours + (minutes / 60) + (seconds / 3600);
-        console.log('Parsed duration:', { hours, minutes, seconds, totalHours });
         return !isNaN(totalHours) && totalHours > 0 ? totalHours : 0;
       }
     }
 
     // Fallback to simple number parsing
     const parsed = parseFloat(duration);
-    console.log('Fallback parsed duration:', parsed);
     return !isNaN(parsed) && parsed > 0 ? parsed : 0;
   }
-  console.log('Duration is invalid, returning 0');
   return 0; // Default fallback
 };
 
@@ -156,7 +148,6 @@ async function generateAIInsights(userData, studyStatsData, tasks) {
     }));
 
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-    console.log("⚡ Using Gemini model:", MODEL_NAME);
 
 
     const prompt = `
@@ -297,8 +288,8 @@ exports.getTrackingInsights = async (req, res) => {
   try {
     const userId = req.user; // From auth middleware
     const cacheKey = `tracking:insights:${userId}`;
-    const cached = await redisClient.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
+    const cached = await cacheGet(cacheKey);
+    if (cached) return res.json(cached);
     // Get user data with only essential fields
     const user = await User.findById(userId).select('firstName lastName email createdAt');
     if (!user) {
@@ -325,15 +316,6 @@ exports.getTrackingInsights = async (req, res) => {
     // Create study statistics data directly from tasks
     const studyStatsData = createStudyStatsData(tasks);
 
-    console.log('=== SERVER SIDE DEBUG ===');
-    console.log('User Data:', user);
-    console.log('Study Stats Data:', studyStatsData);
-    console.log('Tasks Count:', tasks.length);
-    console.log('Sample Task Data:', tasks[0]);
-    console.log('Task Duration Sample:', tasks[0]?.duration);
-    console.log('Parsed Duration Sample:', parseDuration(tasks[0]?.duration));
-    console.log('========================');
-
     // Generate AI insights with study data
     let insights;
     try {
@@ -355,7 +337,7 @@ exports.getTrackingInsights = async (req, res) => {
       }
     };
 
-    await redisClient.set(cacheKey, JSON.stringify(responseData), { EX: 300 });
+    await cacheSet(cacheKey, responseData, 300);
 
     res.json(responseData);
 
@@ -427,7 +409,6 @@ function createStudyStatsData(tasks) {
 
     // Parse duration using helper function
     const duration = parseDuration(task.duration);
-    console.log('Task duration parsed:', duration, 'for task:', task.title || 'Untitled');
 
     // Hourly stats
     if (!intervals.hourly[taskHour]) {
@@ -487,10 +468,6 @@ function createStudyStatsData(tasks) {
   const monthlyAverage = calculateAverageHours(intervals.monthly);
   const sixMonthlyAverage = calculateAverageHours(intervals.sixMonthly);
   const yearlyAverage = calculateAverageHours(intervals.yearly);
-
-  console.log('Final intervals totals:', intervals.total);
-  console.log('Productivity score:', productivityScore);
-  console.log('Study patterns:', studyPatterns);
 
   return {
     timeIntervals: {

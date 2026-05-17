@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
+import { Eye, EyeOff } from 'lucide-react';
 import './css/register.css';
-import { sendSignupOtp, verifySignupOtp, register } from '../api';
+import { sendSignupOtp, verifySignupOtp, register, googleLogin } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 const RegisterPage = () => {
   const [step, setStep] = useState(1); 
@@ -21,6 +24,7 @@ const RegisterPage = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
 
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
@@ -76,8 +80,8 @@ const RegisterPage = () => {
       setError('Please fill in all required fields.');
       return false;
     }
-    if (form.password.length < 4) {
-      setError('Password must be at least 4 characters.');
+    if (form.password.length < 12) {
+      setError('Password must be at least 12 characters.');
       return false;
     }
     if (form.password !== form.confirmPassword) {
@@ -104,9 +108,10 @@ const RegisterPage = () => {
         tempUserId
       };
       await register(payload);
-      setMessage('Registration successful! Redirecting to login...');
+      await refreshUser();
+      setMessage('Registration successful! Redirecting to dashboard...');
       setTimeout(() => {
-        navigate('/login');
+        navigate('/dashboard');
       }, 2000);
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
@@ -183,6 +188,37 @@ const RegisterPage = () => {
           >
             {loading ? 'Sending...' : 'Send Verification Code'}
           </button>
+
+          <div className="auth-divider">
+            <span>or continue with</span>
+          </div>
+
+          <div className="auth-google-row">
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                try {
+                  setLoading(true);
+                  const response = await googleLogin(credentialResponse.credential);
+                  if (response.data.success) {
+                    await refreshUser();
+                    navigate('/dashboard');
+                  }
+                } catch (error) {
+                  console.error('Google signup error:', error);
+                  setError('Google signup failed. Please try again.');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              onError={() => {
+                setError('Google signup failed. Please try again.');
+              }}
+              text="signup"
+              size="large"
+            />
+          </div>
+
+          <div style={{ margin: '16px 0' }}></div>
 
           <div className="login-link-container">
             Already have an account?{' '}
@@ -319,13 +355,15 @@ const RegisterPage = () => {
                 className="form-input"
                 autoComplete="new-password"
               />
-              <span
+              <button
+                type="button"
                 onClick={() => setShowPassword(s => !s)}
                 className="password-toggle-icon"
                 title={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? '🙈' : '👁️'}
-              </span>
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
           <div className="form-group">
@@ -340,13 +378,15 @@ const RegisterPage = () => {
                 className="form-input"
                 autoComplete="new-password"
               />
-              <span
+              <button
+                type="button"
                 onClick={() => setShowConfirmPassword(s => !s)}
                 className="password-toggle-icon"
                 title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
               >
-                {showConfirmPassword ? '🙈' : '👁️'}
-              </span>
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 const User = require('../models/User');
 const Task = require('../models/Task');
-const redisClient = require('../config/redis');
+const { cacheGet, cacheSet, cacheDel } = require('../utils/cache');
 
 exports.getProfile = async (req, res) => {
   try {
@@ -21,6 +21,7 @@ exports.updateProfile = async (req, res) => {
     if (!firstName || !lastName) return res.status(400).json({ message: 'First and last name required' });
     const user = await User.findByIdAndUpdate(userId, { firstName, lastName }, { new: true, runValidators: true }).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
+    await cacheDel('leaderboard');
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -29,35 +30,32 @@ exports.updateProfile = async (req, res) => {
 
 exports.getLeaderboard = async (req, res) => {
   try {
-    const cached = await redisClient.get('leaderboard');
-    if (cached) return res.json(JSON.parse(cached));
+    const cached = await cacheGet('leaderboard');
+    if (cached) return res.json(cached);
 
     // Use aggregation pipeline to avoid N+1 queries
     const leaderboard = await Task.aggregate([
+      {
+        $addFields: {
+          durationParts: { $split: [{ $ifNull: ['$duration', '00:00:00'] }, ':'] }
+        }
+      },
       {
         $group: {
           _id: '$user',
           totalDuration: {
             $sum: {
-              $cond: [
-                { $ne: ['$duration', null] },
+              $ifNull: [
+                '$durationSeconds',
                 {
-                  $let: {
-                    vars: {
-                      parts: { $split: ['$duration', ':'] }
-                    },
-                    in: {
-                      $add: [
-                        { $multiply: [{ $toInt: { $arrayElemAt: ['$$parts', 0] } }, 3600] },
-                        { $multiply: [{ $toInt: { $arrayElemAt: ['$$parts', 1] } }, 60] },
-                        { $toInt: { $arrayElemAt: ['$$parts', 2] } }
-                      ]
-                    }
-                  }
-                },
-                0
+                  $add: [
+                    { $multiply: [{ $toInt: { $arrayElemAt: ['$durationParts', 0] } }, 3600] },
+                    { $multiply: [{ $toInt: { $arrayElemAt: ['$durationParts', 1] } }, 60] },
+                    { $toInt: { $arrayElemAt: ['$durationParts', 2] } }
+                  ]
+                }
               ]
-            }
+            },
           }
         }
       },
@@ -86,7 +84,7 @@ exports.getLeaderboard = async (req, res) => {
       }
     ]);
 
-    await redisClient.set('leaderboard', JSON.stringify(leaderboard), { EX: 300 });
+    await cacheSet('leaderboard', leaderboard, 120);
     res.json(leaderboard);
   } catch (err) {
     console.error('Leaderboard error:', err);

@@ -1,7 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const redisClient = require('../config/redis');
 const { sendPasswordResetEmail, sendSignupVerificationEmail } = require('../config/email');
 
 exports.sendSignupOtp = async (req, res) => {
@@ -143,7 +142,7 @@ exports.register = async (req, res) => {
     // Generate JWT token
     const token = jwt.sign({ id: tempUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    const username = `${tempUser.firstName} ${tempUser.lastName}`;
+    const username = `${tempUser.firstName || ''} ${tempUser.lastName || ''}`.trim();
     const cookieOptions = {
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -171,10 +170,13 @@ exports.login = async (req, res) => {
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!user.password) {
+      return res.status(400).json({ message: 'Please continue with Google login for this account' });
+    }
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ message: 'Invalid credentials' });
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    const username = `${user.firstName} ${user.lastName}`;
+    const username = `${user.firstName || ''} ${user.lastName || ''}`.trim();
     const cookieOptions = {
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -233,7 +235,7 @@ exports.getCurrentUser = async (req, res) => {
     }
     
     // Construct username from firstName and lastName
-    const username = `${user.firstName} ${user.lastName}`;
+    const username = `${user.firstName || ''} ${user.lastName || ''}`.trim();
     // console.log('getCurrentUser - Authentication successful for:', username);
     res.json({ loggedIn: true, user: { id: user._id, username, email: user.email } });
   } catch (err) {
@@ -265,6 +267,9 @@ exports.changePassword = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+    if (!user.password) {
+      return res.status(400).json({ message: 'This account uses Google login. Set a password through reset password first.' });
     }
 
     // Verify current password

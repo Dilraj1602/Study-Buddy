@@ -2,12 +2,15 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const passport = require('./config/passport');
 const connectDB = require('./config/db');
 
 const authRoutes = require('./routes/auth');
 const taskRoutes = require('./routes/tasks');
 const chatRoutes = require('./routes/chat');
 const trackingRoutes = require('./routes/tracking');
+const oauthRoutes = require('./routes/oauth');
 
 const app = express();
 
@@ -15,9 +18,9 @@ app.use(express.json());
 app.use(cookieParser());
 
 const allowedOrigins = [
-  'http://localhost:3000',               
-  'https://studytrack-r4uo.onrender.com',  
-  'https://studytrack-5s52.onrender.com' 
+  'http://localhost:3000',
+  'https://studytrack-r4uo.onrender.com',
+  'https://studytrack-5s52.onrender.com'
 ];
 
 app.use(cors({
@@ -31,6 +34,22 @@ app.use(cors({
   credentials: true
 }));
 
+// Session middleware (required for Passport)
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Base API router
 const apiRouter = express.Router();
@@ -38,6 +57,7 @@ apiRouter.use('/auth', authRoutes);
 apiRouter.use('/tasks', taskRoutes);
 apiRouter.use('/chat', chatRoutes);
 apiRouter.use('/tracking', trackingRoutes);
+apiRouter.use('/oauth', oauthRoutes);
 app.use('/api/v1', apiRouter);
 
 // Debug route to test if server is working
@@ -53,4 +73,4 @@ connectDB().then(() => {
   app.listen(process.env.PORT || 4000, () => {
     console.log('Server running on port', process.env.PORT || 4000);
   });
-}); 
+});
